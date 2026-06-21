@@ -93,11 +93,19 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
         if not title:
             continue
         pos_args = {}
+        hwnd = w.get("hwnd")
+        # detect maximized state via window placement
+        is_maximized = False
+        if hwnd:
+            try:
+                placement = win32gui.GetWindowPlacement(hwnd)
+                is_maximized = placement[1] == win32con.SW_SHOWMAXIMIZED
+            except Exception:
+                pass
         # rect is (left, top, width, height)
         if rect:
             left, top, width, height = rect
-            # treat very large windows as maximized heuristically
-            if width == 0 or height == 0:
+            if is_maximized or width == 0 or height == 0:
                 pos_args["maximized"] = True
             else:
                 pos_args.update({"left": left, "top": top, "width": width, "height": height})
