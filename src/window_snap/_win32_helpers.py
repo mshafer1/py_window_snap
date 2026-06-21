@@ -3,6 +3,7 @@ import ctypes.wintypes
 import time
 from typing import Dict, List, Tuple
 
+import regex
 import win32api
 import win32con
 import win32gui
@@ -186,29 +187,46 @@ def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
 
 
 def find_hwnds_by_title(title: str) -> List[int]:
-    """Return visible top-level window handles whose title exactly matches.
+    """Return visible top-level window handles matching a title query.
+
+    Includes exact and partial matches and sorts by match quality.
 
     Args:
-        title (str): Window title to match.
+        title (str): Window title query.
 
     Returns:
-        List[int]: List of matching window handles.
+        List[int]: Matching window handles sorted with exact matches first, then
+            by matched-segment length (longest first).
     """
-    matches: List[int] = []
+    query = title.strip()
+    if not query:
+        return []
+
+    pattern = regex.compile(regex.escape(query), flags=regex.BESTMATCH)
+    candidates: List[Tuple[int, int, bool]] = []
 
     def _cb(hwnd, _):
         try:
             if not win32gui.IsWindowVisible(hwnd):
                 return True
             t = win32gui.GetWindowText(hwnd).strip()
-            if t == title:
-                matches.append(hwnd)
+            if not t:
+                return True
+            match = pattern.search(t)
+            if not match:
+                return True
+
+            match_len = match.end() - match.start()
+            is_exact = t == query
+            candidates.append((hwnd, match_len, is_exact))
         except Exception:
             pass
         return True
 
     win32gui.EnumWindows(_cb, None)
-    return matches
+    # Sort exact matches first, then by longest matched segment.
+    candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
+    return [hwnd for hwnd, _match_len, _is_exact in candidates]
 
 
 def find_hwnds_by_exe(exe_name: str) -> List[int]:
