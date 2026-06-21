@@ -8,7 +8,6 @@ import win32con
 import win32gui
 import win32process
 
-
 # Toolhelp constants
 TH32CS_SNAPPROCESS = 0x00000002
 
@@ -55,7 +54,9 @@ def enum_windows() -> List[Dict]:
             height = y2 - y1
             if width <= 10 or height <= 10:
                 return True
-            results.append({"hwnd": hwnd, "title": title, "pid": pid, "rect": (x1, y1, width, height)})
+            results.append(
+                {"hwnd": hwnd, "title": title, "pid": pid, "rect": (x1, y1, width, height)}
+            )
         except Exception:
             pass
         return True
@@ -77,14 +78,18 @@ def get_monitor_work_area_at_point(x: int, y: int) -> Tuple[int, int, int, int]:
     return left, top, right - left, bottom - top
 
 
-def get_monitor_work_area_for_rect(left: int, top: int, width: int, height: int) -> Tuple[int, int, int, int]:
+def get_monitor_work_area_for_rect(
+    left: int, top: int, width: int, height: int
+) -> Tuple[int, int, int, int]:
     """Return the monitor work area rectangle for the monitor containing the center of a rect."""
     if width <= 0 or height <= 0:
         return get_monitor_work_area_at_point(left, top)
     return get_monitor_work_area_at_point(left + width // 2, top + height // 2)
 
 
-def set_window_pos(hwnd: int, left: int, top: int, width: int, height: int, activate: bool = False) -> None:
+def set_window_pos(
+    hwnd: int, left: int, top: int, width: int, height: int, activate: bool = False
+) -> None:
     flags = win32con.SWP_NOZORDER | win32con.SWP_NOOWNERZORDER
     if not activate:
         flags |= win32con.SWP_NOACTIVATE
@@ -132,7 +137,9 @@ def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
     if force_refresh:
         _pid_exe_cache.clear()
     # If cache empty or expired, rebuild
-    if not _pid_exe_cache or any(now - ts > _cache_ttl_seconds for _, ts in _pid_exe_cache.values()):
+    if not _pid_exe_cache or any(
+        now - ts > _cache_ttl_seconds for _, ts in _pid_exe_cache.values()
+    ):
         pid_map = _build_pid_to_exe_map()
         _pid_exe_cache = {pid: (exe, now) for pid, exe in pid_map.items()}
     return {pid: exe for pid, (exe, ts) in _pid_exe_cache.items()}

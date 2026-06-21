@@ -2,17 +2,16 @@ import collections
 import dataclasses
 import functools
 import logging
-import os
-import time
 import typing
 
 import screeninfo
+import win32con
+import win32gui
 import yaml
 
 import window_snap
+
 from . import win32_helpers
-import win32con
-import win32gui
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())  # make sure there is a default handler available
@@ -39,7 +38,6 @@ def _get_screen_info() -> typing.List[screeninfo.screeninfo.Monitor]:
 def dataclass_representer(dumper, data):
     # This automatically converts the dataclass to a plain dict behind the scenes
     return dumper.represent_dict({k: v for k, v in data._asdict().items() if v is not None})
-
 
 
 class WindowSnapDestination(typing.NamedTuple):
@@ -121,7 +119,9 @@ def _find_monitor_by_rect(left: int, top: int, width: int, height: int):
 def _scale_to_dimension(value: typing.Union[float, int, None], dimension: int, base: int):
     if value is None:
         return None
-    if 0 < value <= 1:  # it's a float. 0 means "at the point", 0<x<1 is percentage. 1 is full. Anything other then that is a pixel value.
+    if (
+        0 < value <= 1
+    ):  # it's a float. 0 means "at the point", 0<x<1 is percentage. 1 is full. Anything other then that is a pixel value.
         return int(value * dimension) + base
     else:  # absolute value integer
         return int(value) + base
@@ -155,7 +155,9 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         pass
 
     # Perform the window snapping logic here
-    _logger.info("Window '%s' found (hwnd=%s), snapping to destination: %s", window_title, hwnd, destination)
+    _logger.info(
+        "Window '%s' found (hwnd=%s), snapping to destination: %s", window_title, hwnd, destination
+    )
     screens = _get_screen_info()
 
     if destination.monitor is not None and destination.monitor >= len(screens):
@@ -179,7 +181,15 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
 
         if destination.maximized:
             try:
-                win32gui.SetWindowPos(hwnd, None, work_left, work_top, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOZORDER)
+                win32gui.SetWindowPos(
+                    hwnd,
+                    None,
+                    work_left,
+                    work_top,
+                    0,
+                    0,
+                    win32con.SWP_NOSIZE | win32con.SWP_NOZORDER,
+                )
                 win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
             except Exception:
                 pass
@@ -220,15 +230,17 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                 cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
                 monitor_info = _find_monitor_by_rect(cur_left, cur_top, cur_w, cur_h)
                 if monitor_info is None:
-                    _logger.debug("Could not determine monitor for hwnd %s, using primary monitor", hwnd)
+                    _logger.debug(
+                        "Could not determine monitor for hwnd %s, using primary monitor", hwnd
+                    )
                     monitor = screens[0]
-                    work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
-                        monitor.x + 1, monitor.y + 1
+                    work_left, work_top, work_width, work_height = (
+                        win32_helpers.get_monitor_work_area_at_point(monitor.x + 1, monitor.y + 1)
                     )
                 else:
                     _, monitor = monitor_info
-                    work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
-                        cur_left + 1, cur_top + 1
+                    work_left, work_top, work_width, work_height = (
+                        win32_helpers.get_monitor_work_area_at_point(cur_left + 1, cur_top + 1)
                     )
 
                 left, top, width, height = (
@@ -242,7 +254,12 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                 )
 
                 _logger.debug("Handling %s as %s", destination, (left, top, width, height))
-                if left is not None and top is not None and width is not None and height is not None:
+                if (
+                    left is not None
+                    and top is not None
+                    and width is not None
+                    and height is not None
+                ):
                     win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
                 else:
                     cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
