@@ -1,9 +1,9 @@
 import ctypes
 import ctypes.wintypes
 import time
+from difflib import get_close_matches
 from typing import Dict, List, Tuple
 
-import regex
 import win32api
 import win32con
 import win32gui
@@ -189,21 +189,19 @@ def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
 def find_hwnds_by_title(title: str) -> List[int]:
     """Return visible top-level window handles matching a title query.
 
-    Includes exact and partial matches and sorts by match quality.
+    Uses difflib.get_close_matches to sort candidate titles by similarity.
 
     Args:
         title (str): Window title query.
 
     Returns:
-        List[int]: Matching window handles sorted with exact matches first, then
-            by matched-segment length (longest first).
+        List[int]: Matching window handles sorted by closest title matches.
     """
     query = title.strip()
     if not query:
         return []
 
-    pattern = regex.compile(regex.escape(query), flags=regex.BESTMATCH)
-    candidates: List[Tuple[int, int, bool]] = []
+    title_to_hwnds: Dict[str, List[int]] = {}
 
     def _cb(hwnd, _):
         try:
@@ -212,21 +210,27 @@ def find_hwnds_by_title(title: str) -> List[int]:
             t = win32gui.GetWindowText(hwnd).strip()
             if not t:
                 return True
-            match = pattern.search(t)
-            if not match:
-                return True
-
-            match_len = match.end() - match.start()
-            is_exact = t == query
-            candidates.append((hwnd, match_len, is_exact))
+            title_to_hwnds.setdefault(t, []).append(hwnd)
         except Exception:
             pass
         return True
 
     win32gui.EnumWindows(_cb, None)
-    # Sort exact matches first, then by longest matched segment.
-    candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
-    return [hwnd for hwnd, _match_len, _is_exact in candidates]
+    if not title_to_hwnds:
+        return []
+
+    ordered_titles = get_close_matches(
+        query, list(title_to_hwnds.keys()), n=len(title_to_hwnds), cutoff=0.0
+    )
+
+    # Keep exact-match titles first when present.
+    if query in title_to_hwnds:
+        ordered_titles = [query] + [t for t in ordered_titles if t != query]
+
+    ordered_hwnds: List[int] = []
+    for matched_title in ordered_titles:
+        ordered_hwnds.extend(title_to_hwnds.get(matched_title, []))
+    return ordered_hwnds
 
 
 def find_hwnds_by_exe(exe_name: str) -> List[int]:
