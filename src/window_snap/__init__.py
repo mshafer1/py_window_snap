@@ -10,14 +10,25 @@ import win32gui
 import yaml
 
 import window_snap
-
-from . import win32_helpers
+from window_snap import win32_helpers
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())  # make sure there is a default handler available
 
 
-def load_config(config_path: str) -> dict:
+def load_config(config_path: str | pathlib.Path) -> dict:
+    """Load YAML configuration from a file.
+
+    Args:
+        config_path: Path to the YAML config file.
+
+    Returns:
+        Parsed configuration as a dict. Returns an empty dict if the file
+        does not exist.
+
+    Raises:
+        yaml.YAMLError: If the YAML cannot be parsed.
+    """
     try:
         with open(config_path, "r") as f:
             config = yaml.load(f, Loader=yaml.CSafeLoader)
@@ -35,12 +46,24 @@ def _get_screen_info() -> typing.List[screeninfo.screeninfo.Monitor]:
     return list(sorted(screeninfo.screeninfo.get_monitors(), key=lambda m: (m.x, m.y)))
 
 
-def dataclass_representer(dumper, data):
+def _dataclass_representer(dumper, data):
     # This automatically converts the dataclass to a plain dict behind the scenes
     return dumper.represent_dict({k: v for k, v in data._asdict().items() if v is not None})
 
 
 class WindowSnapDestination(typing.NamedTuple):
+    """Destination specification for snapping a window.
+
+    Attributes:
+        monitor: Optional index of the monitor to move the window to.
+        left: Left position or fraction of the work area width.
+        top: Top position or fraction of the work area height.
+        width: Width in pixels or fraction of the work area width.
+        height: Height in pixels or fraction of the work area height.
+        maximized: If True, maximize the window on the target monitor/work area.
+        find_by_exe: If True, treat the name as an executable and find windows by exe.
+    """
+
     monitor: typing.Optional[int] = None
     left: typing.Optional[float] = None
     top: typing.Optional[float] = None
@@ -50,10 +73,17 @@ class WindowSnapDestination(typing.NamedTuple):
     find_by_exe: typing.Optional[bool] = None
 
 
-yaml.SafeDumper.add_multi_representer(WindowSnapDestination, dataclass_representer)
+yaml.SafeDumper.add_multi_representer(WindowSnapDestination, _dataclass_representer)
 
 
 def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
+    """Enumerate current top-level windows and return their positions.
+
+    Returns:
+        A dict mapping window title to a `WindowSnapDestination` describing
+        the window's current position/size.
+    """
+
     current_windows = {}
     for w in win32_helpers.enum_windows():
         title = w.get("title")
@@ -74,6 +104,15 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
 
 
 def find_exe_names():
+    """Return a mapping of window titles to their executable names.
+
+    Attempts to build a map of window title -> exe (lowercased) using the
+    PID->exe mapping from `win32_helpers`.
+
+    Returns:
+        dict: mapping of window title to executable path (lowercased).
+    """
+
     title_to_exe_map = {}
     try:
         pid_map = win32_helpers.get_pid_to_exe_map()
@@ -88,17 +127,6 @@ def find_exe_names():
         _logger.debug("failed get exe names via win32 helpers: %s", e)
     return title_to_exe_map
 
-
-@functools.lru_cache(maxsize=1)
-def find_pid_for_exe():
-    exe_to_pid = collections.defaultdict(list)
-    try:
-        pid_map = win32_helpers.get_pid_to_exe_map()
-        for pid, exe in pid_map.items():
-            exe_to_pid[exe].append(pid)
-    except Exception as e:
-        _logger.debug("failed build pid map via Toolhelp: %s", e)
-    return exe_to_pid
 
 
 def _find_monitor_by_rect(left: int, top: int, width: int, height: int):
@@ -128,6 +156,15 @@ def _scale_to_dimension(value: typing.Union[float, int, None], dimension: int, b
 
 
 def snap_window(window_title: str, destination: WindowSnapDestination):
+    """Snap a single window to the provided destination.
+
+    Args:
+        window_title: The window title or executable name (if
+            `destination.find_by_exe` is True).
+        destination: A `WindowSnapDestination` describing where/how to place
+            the window.
+    """
+
     _logger.info("Snapping window '%s' to destination: %s", window_title, destination)
 
     try:
@@ -273,6 +310,12 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
 
 
 def snap_windows(config):
+    """Apply snapping rules from configuration to all named windows.
+
+    Args:
+        config: Configuration dict which must contain a `windows` mapping.
+    """
+
     for window_name, snap_config in config["windows"].items():
         _logger.debug("Processing window '%s' with config: %s", window_name, snap_config)
         try:

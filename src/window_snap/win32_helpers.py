@@ -1,7 +1,7 @@
 import ctypes
 import ctypes.wintypes
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import win32api
 import win32con
@@ -34,7 +34,11 @@ class PROCESSENTRY32W(ctypes.Structure):
 
 
 def enum_windows() -> List[Dict]:
-    """Enumerate top-level visible windows and return list of dicts with hwnd, title, pid, rect."""
+    """Enumerate visible top-level windows.
+
+    Returns:
+        List[Dict]: A list of window dictionaries containing hwnd, title, pid, and rect.
+    """
     results = []
 
     def _cb(hwnd, _):
@@ -66,19 +70,35 @@ def enum_windows() -> List[Dict]:
 
 
 def get_window_rect(hwnd: int) -> Tuple[int, int, int, int]:
+    """Return the window rectangle in left/top/width/height format.
+
+    Args:
+        hwnd (int): Handle to the target window.
+
+    Returns:
+        Tuple[int, int, int, int]: A tuple of (left, top, width, height).
+    """
     x1, y1, x2, y2 = win32gui.GetWindowRect(hwnd)
     return x1, y1, x2 - x1, y2 - y1
 
 
 def get_monitor_work_area_at_point(x: int, y: int) -> Tuple[int, int, int, int]:
-    """Return the monitor work area rectangle for the monitor containing the given point."""
+    """Return the work area rectangle for the monitor containing a point.
+
+    Args:
+        x (int): X coordinate of the point.
+        y (int): Y coordinate of the point.
+
+    Returns:
+        Tuple[int, int, int, int]: A tuple of (left, top, width, height) for the monitor work area.
+    """
     hmonitor = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
     info = win32api.GetMonitorInfo(hmonitor)
     left, top, right, bottom = info["Work"]
     return left, top, right - left, bottom - top
 
 
-def get_monitor_work_area_for_rect(
+def _get_monitor_work_area_for_rect(
     left: int, top: int, width: int, height: int
 ) -> Tuple[int, int, int, int]:
     """Return the monitor work area rectangle for the monitor containing the center of a rect."""
@@ -90,13 +110,23 @@ def get_monitor_work_area_for_rect(
 def set_window_pos(
     hwnd: int, left: int, top: int, width: int, height: int, activate: bool = False
 ) -> None:
+    """Position and resize a window without changing its z-order.
+
+    Args:
+        hwnd (int): Handle to the target window.
+        left (int): New left position.
+        top (int): New top position.
+        width (int): New window width.
+        height (int): New window height.
+        activate (bool): If True, activate the window after moving it.
+    """
     flags = win32con.SWP_NOZORDER | win32con.SWP_NOOWNERZORDER
     if not activate:
         flags |= win32con.SWP_NOACTIVATE
     win32gui.SetWindowPos(hwnd, None, left, top, width, height, flags)
 
 
-def move_window(hwnd: int, left: int, top: int, width: int, height: int) -> None:
+def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> None:
     # MoveWindow will activate the window; SetWindowPos used above avoids activation when possible
     try:
         win32gui.MoveWindow(hwnd, left, top, width, height, True)
@@ -111,9 +141,9 @@ _cache_ttl_seconds = 2.0
 
 def _build_pid_to_exe_map() -> Dict[int, str]:
     kernel32 = ctypes.windll.kernel32
-    INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+    invalid_handle_value = ctypes.c_void_p(-1).value
     snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    if snapshot == INVALID_HANDLE_VALUE or snapshot is None:
+    if snapshot == invalid_handle_value or snapshot is None:
         raise RuntimeError("CreateToolhelp32Snapshot failed")
 
     entry = PROCESSENTRY32W()
@@ -132,6 +162,14 @@ def _build_pid_to_exe_map() -> Dict[int, str]:
 
 
 def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
+    """Return a cached mapping of process IDs to executable names.
+
+    Args:
+        force_refresh (bool): If True, rebuild the process map even if the cache is fresh.
+
+    Returns:
+        Dict[int, str]: A mapping from PID to executable filename.
+    """
     global _pid_exe_cache
     now = time.time()
     if force_refresh:
@@ -146,7 +184,14 @@ def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
 
 
 def find_hwnds_by_title(title: str) -> List[int]:
-    """Return hwnds whose title exactly matches the provided title."""
+    """Return visible top-level window handles whose title exactly matches.
+
+    Args:
+        title (str): Window title to match.
+
+    Returns:
+        List[int]: List of matching window handles.
+    """
     matches: List[int] = []
 
     def _cb(hwnd, _):
@@ -165,10 +210,16 @@ def find_hwnds_by_title(title: str) -> List[int]:
 
 
 def find_hwnds_by_exe(exe_name: str) -> List[int]:
-    """Return hwnds that belong to processes with given exe name (case-insensitive).
+    """Return window handles for processes matching an executable name.
 
     This normalizes names by stripping paths and extensions so callers can pass
-    either 'chrome', 'chrome.exe', or full paths.
+    either 'chrome', 'chrome.exe', or a full path.
+
+    Args:
+        exe_name (str): Executable name or path to match.
+
+    Returns:
+        List[int]: List of matching window handles.
     """
     import os
 
