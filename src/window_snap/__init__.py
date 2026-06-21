@@ -194,7 +194,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         else:
             hwnds = _win32_helpers.find_hwnds_by_title(window_title)
             if not hwnds:
-                _logger.info("Window '%s' not found, skipping", window_title)
+                _logger.warning("Window '%s' not found, skipping", window_title)
                 return
             hwnd = hwnds[0]
     except IndexError:
