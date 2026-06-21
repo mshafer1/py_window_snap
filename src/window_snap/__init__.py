@@ -1,7 +1,9 @@
-import collections
+"""Module to snap windows to specified positions/sizes based on a YAML configuration."""
+
 import dataclasses
 import functools
 import logging
+import pathlib
 import typing
 
 import screeninfo
@@ -10,7 +12,7 @@ import win32gui
 import yaml
 
 import window_snap
-from window_snap import win32_helpers
+from window_snap import _win32_helpers
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())  # make sure there is a default handler available
@@ -37,7 +39,7 @@ def load_config(config_path: str | pathlib.Path) -> dict:
         _logger.warning("Config file not found: %s", config_path)
         return {}
     except yaml.YAMLError as e:
-        _logger.error("Error parsing config file %s: %s", config_path, e)
+        _logger.exception("Error parsing config file %s: %s", config_path, e)
         raise
 
 
@@ -83,9 +85,8 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
         A dict mapping window title to a `WindowSnapDestination` describing
         the window's current position/size.
     """
-
     current_windows = {}
-    for w in win32_helpers.enum_windows():
+    for w in _win32_helpers.enum_windows():
         title = w.get("title")
         rect = w.get("rect")
         if not title:
@@ -112,11 +113,10 @@ def find_exe_names():
     Returns:
         dict: mapping of window title to executable path (lowercased).
     """
-
     title_to_exe_map = {}
     try:
-        pid_map = win32_helpers.get_pid_to_exe_map()
-        for w in win32_helpers.enum_windows():
+        pid_map = _win32_helpers.get_pid_to_exe_map()
+        for w in _win32_helpers.enum_windows():
             title = w.get("title")
             pid = w.get("pid")
             if title and pid:
@@ -126,7 +126,6 @@ def find_exe_names():
     except Exception as e:
         _logger.debug("failed get exe names via win32 helpers: %s", e)
     return title_to_exe_map
-
 
 
 def _find_monitor_by_rect(left: int, top: int, width: int, height: int):
@@ -164,20 +163,19 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         destination: A `WindowSnapDestination` describing where/how to place
             the window.
     """
-
     _logger.info("Snapping window '%s' to destination: %s", window_title, destination)
 
     try:
         hwnd = None
         if destination.find_by_exe:
             # window_title here is expected to be an exe name
-            hwnds = win32_helpers.find_hwnds_by_exe(window_title)
+            hwnds = _win32_helpers.find_hwnds_by_exe(window_title)
             if not hwnds:
                 _logger.warning("No window found for exe '%s', skipping", window_title)
                 return
             hwnd = hwnds[0]
         else:
-            hwnds = win32_helpers.find_hwnds_by_title(window_title)
+            hwnds = _win32_helpers.find_hwnds_by_title(window_title)
             if not hwnds:
                 _logger.info("Window '%s' not found, skipping", window_title)
                 return
@@ -212,8 +210,8 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
             return
 
         screen = screens[destination.monitor]
-        work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
-            screen.x + 1, screen.y + 1
+        work_left, work_top, work_width, work_height = (
+            _win32_helpers.get_monitor_work_area_at_point(screen.x + 1, screen.y + 1)
         )
 
         if destination.maximized:
@@ -243,16 +241,16 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
 
             _logger.debug("Handling %s as %s", destination, (left, top, width, height))
             if left is not None and top is not None and width is not None and height is not None:
-                win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+                _win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
             else:
                 # partial updates
                 try:
-                    cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                    cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
                     nl = left if left is not None else cur_left
                     nt = top if top is not None else cur_top
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
-                    win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+                    _win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
                 except Exception:
                     pass
     else:
@@ -264,7 +262,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                 pass
         else:
             try:
-                cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
                 monitor_info = _find_monitor_by_rect(cur_left, cur_top, cur_w, cur_h)
                 if monitor_info is None:
                     _logger.debug(
@@ -272,12 +270,12 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     )
                     monitor = screens[0]
                     work_left, work_top, work_width, work_height = (
-                        win32_helpers.get_monitor_work_area_at_point(monitor.x + 1, monitor.y + 1)
+                        _win32_helpers.get_monitor_work_area_at_point(monitor.x + 1, monitor.y + 1)
                     )
                 else:
                     _, monitor = monitor_info
                     work_left, work_top, work_width, work_height = (
-                        win32_helpers.get_monitor_work_area_at_point(cur_left + 1, cur_top + 1)
+                        _win32_helpers.get_monitor_work_area_at_point(cur_left + 1, cur_top + 1)
                     )
 
                 left, top, width, height = (
@@ -297,14 +295,14 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     and width is not None
                     and height is not None
                 ):
-                    win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+                    _win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
                 else:
-                    cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                    cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
                     nl = left if left is not None else cur_left
                     nt = top if top is not None else cur_top
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
-                    win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+                    _win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
             except Exception as e:
                 _logger.debug("failed to reposition hwnd %s: %s", hwnd, e)
 
@@ -315,7 +313,6 @@ def snap_windows(config):
     Args:
         config: Configuration dict which must contain a `windows` mapping.
     """
-
     for window_name, snap_config in config["windows"].items():
         _logger.debug("Processing window '%s' with config: %s", window_name, snap_config)
         try:
@@ -327,11 +324,11 @@ def snap_windows(config):
                 }
             )
         except TypeError as e:
-            _logger.error(
+            _logger.exception(
                 "Invalid configuration for window '%s': %s. Error: %s", window_name, snap_config, e
             )
             continue
         try:
             window_snap.snap_window(window_name, destination)
         except Exception as e:
-            _logger.error("Error occurred while snapping window '%s': %s", window_name, e)
+            _logger.exception("Error occurred while snapping window '%s': %s", window_name, e)

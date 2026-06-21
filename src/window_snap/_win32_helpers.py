@@ -19,6 +19,8 @@ else:
 
 
 class PROCESSENTRY32W(ctypes.Structure):
+    """Structure for process entry used with CreateToolhelp32Snapshot."""
+
     _fields_ = [
         ("dwSize", ctypes.wintypes.DWORD),
         ("cntUsage", ctypes.wintypes.DWORD),
