@@ -1,8 +1,9 @@
 import ctypes
 import ctypes.wintypes
+import difflib
+import os
 import time
-from difflib import get_close_matches
-from typing import Dict, List, Tuple
+import typing
 
 import win32api
 import win32con
@@ -36,7 +37,7 @@ class PROCESSENTRY32W(ctypes.Structure):
     ]
 
 
-def enum_windows() -> List[Dict]:
+def enum_windows() -> typing.List[typing.Dict]:
     """Enumerate visible top-level windows.
 
     Returns:
@@ -72,7 +73,7 @@ def enum_windows() -> List[Dict]:
     return results
 
 
-def get_window_rect(hwnd: int) -> Tuple[int, int, int, int]:
+def get_window_rect(hwnd: int) -> typing.Tuple[int, int, int, int]:
     """Return the window rectangle in left/top/width/height format.
 
     Args:
@@ -85,7 +86,7 @@ def get_window_rect(hwnd: int) -> Tuple[int, int, int, int]:
     return x1, y1, x2 - x1, y2 - y1
 
 
-def get_monitor_work_area_at_point(x: int, y: int) -> Tuple[int, int, int, int]:
+def get_monitor_work_area_at_point(x: int, y: int) -> typing.Tuple[int, int, int, int]:
     """Return the work area rectangle for the monitor containing a point.
 
     Args:
@@ -103,7 +104,7 @@ def get_monitor_work_area_at_point(x: int, y: int) -> Tuple[int, int, int, int]:
 
 def _get_monitor_work_area_for_rect(
     left: int, top: int, width: int, height: int
-) -> Tuple[int, int, int, int]:
+) -> typing.Tuple[int, int, int, int]:
     """Return the monitor work area rectangle for the monitor containing the center of a rect."""
     if width <= 0 or height <= 0:
         return get_monitor_work_area_at_point(left, top)
@@ -138,11 +139,11 @@ def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> Non
 
 
 # Simple TTL cache for pid->exe mapping
-_pid_exe_cache: Dict[int, Tuple[str, float]] = {}
+_pid_exe_cache: typing.Dict[int, typing.Tuple[str, float]] = {}
 _cache_ttl_seconds = 2.0
 
 
-def _build_pid_to_exe_map() -> Dict[int, str]:
+def _build_pid_to_exe_map() -> typing.Dict[int, str]:
     kernel32 = ctypes.windll.kernel32
     invalid_handle_value = ctypes.c_void_p(-1).value
     snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
@@ -151,7 +152,7 @@ def _build_pid_to_exe_map() -> Dict[int, str]:
 
     entry = PROCESSENTRY32W()
     entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-    pid_to_exe: Dict[int, str] = {}
+    pid_to_exe: typing.Dict[int, str] = {}
 
     success = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
     while success:
@@ -164,7 +165,7 @@ def _build_pid_to_exe_map() -> Dict[int, str]:
     return pid_to_exe
 
 
-def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
+def get_pid_to_exe_map(force_refresh: bool = False) -> typing.Dict[int, str]:
     """Return a cached mapping of process IDs to executable names.
 
     Args:
@@ -186,7 +187,7 @@ def get_pid_to_exe_map(force_refresh: bool = False) -> Dict[int, str]:
     return {pid: exe for pid, (exe, ts) in _pid_exe_cache.items()}
 
 
-def find_hwnds_by_title(title: str) -> List[int]:
+def find_hwnds_by_title(title: str) -> typing.List[int]:
     """Return visible top-level window handles matching a title query.
 
     Uses difflib.get_close_matches to sort candidate titles by similarity.
@@ -201,7 +202,7 @@ def find_hwnds_by_title(title: str) -> List[int]:
     if not query:
         return []
 
-    title_to_hwnds: Dict[str, List[int]] = {}
+    title_to_hwnds: typing.Dict[str, typing.List[int]] = {}
 
     def _cb(hwnd, _):
         try:
@@ -219,7 +220,7 @@ def find_hwnds_by_title(title: str) -> List[int]:
     if not title_to_hwnds:
         return []
 
-    ordered_titles = get_close_matches(
+    ordered_titles = difflib.get_close_matches(
         query, list(title_to_hwnds.keys()), n=len(title_to_hwnds), cutoff=0.0
     )
 
@@ -227,13 +228,13 @@ def find_hwnds_by_title(title: str) -> List[int]:
     if query in title_to_hwnds:
         ordered_titles = [query] + [t for t in ordered_titles if t != query]
 
-    ordered_hwnds: List[int] = []
+    ordered_hwnds: typing.List[int] = []
     for matched_title in ordered_titles:
         ordered_hwnds.extend(title_to_hwnds.get(matched_title, []))
     return ordered_hwnds
 
 
-def find_hwnds_by_exe(exe_name: str) -> List[int]:
+def find_hwnds_by_exe(exe_name: str) -> typing.List[int]:
     """Return window handles for processes matching an executable name.
 
     This normalizes names by stripping paths and extensions so callers can pass
@@ -245,7 +246,6 @@ def find_hwnds_by_exe(exe_name: str) -> List[int]:
     Returns:
         List[int]: List of matching window handles.
     """
-    import os
 
     def _norm(n: str) -> str:
         if not n:
@@ -261,7 +261,7 @@ def find_hwnds_by_exe(exe_name: str) -> List[int]:
 
     pid_map = get_pid_to_exe_map()
     target_pids = {pid for pid, exe in pid_map.items() if _norm(exe) == _norm(exe_name)}
-    matches: List[int] = []
+    matches: typing.List[int] = []
 
     def _cb(hwnd, _):
         try:

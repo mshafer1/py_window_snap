@@ -12,7 +12,7 @@ import win32gui
 import yaml
 
 import window_snap
-from window_snap import _win32_helpers
+import window_snap._win32_helpers
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())  # make sure there is a default handler available
@@ -87,7 +87,7 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
     """
     current_windows = {}
     more_then_one_screen = len(_get_screen_info()) > 1
-    for w in _win32_helpers.enum_windows():
+    for w in window_snap._win32_helpers.enum_windows():
         title = w.get("title")
         rect = w.get("rect")
         if not title:
@@ -132,8 +132,8 @@ def find_exe_names():
     """
     title_to_exe_map = {}
     try:
-        pid_map = _win32_helpers.get_pid_to_exe_map()
-        for w in _win32_helpers.enum_windows():
+        pid_map = window_snap._win32_helpers.get_pid_to_exe_map()
+        for w in window_snap._win32_helpers.enum_windows():
             title = w.get("title")
             pid = w.get("pid")
             if title and pid:
@@ -186,13 +186,13 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         hwnd = None
         if destination.find_by_exe:
             # window_title here is expected to be an exe name
-            hwnds = _win32_helpers.find_hwnds_by_exe(window_title)
+            hwnds = window_snap._win32_helpers.find_hwnds_by_exe(window_title)
             if not hwnds:
                 _logger.warning("No window found for exe '%s', skipping", window_title)
                 return
             hwnd = hwnds[0]
         else:
-            hwnds = _win32_helpers.find_hwnds_by_title(window_title)
+            hwnds = window_snap._win32_helpers.find_hwnds_by_title(window_title)
             if not hwnds:
                 _logger.warning("Window '%s' not found, skipping", window_title)
                 return
@@ -228,7 +228,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
 
         screen = screens[destination.monitor]
         work_left, work_top, work_width, work_height = (
-            _win32_helpers.get_monitor_work_area_at_point(screen.x + 1, screen.y + 1)
+            window_snap._win32_helpers.get_monitor_work_area_at_point(screen.x + 1, screen.y + 1)
         )
 
         if destination.maximized:
@@ -258,16 +258,20 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
 
             _logger.debug("Handling %s as %s", destination, (left, top, width, height))
             if left is not None and top is not None and width is not None and height is not None:
-                _win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+                window_snap._win32_helpers.set_window_pos(
+                    hwnd, left, top, width, height, activate=False
+                )
             else:
                 # partial updates
                 try:
-                    cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
+                    cur_left, cur_top, cur_w, cur_h = window_snap._win32_helpers.get_window_rect(
+                        hwnd
+                    )
                     nl = left if left is not None else cur_left
                     nt = top if top is not None else cur_top
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
-                    _win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+                    window_snap._win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
                 except Exception:
                     pass
     else:
@@ -279,7 +283,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                 pass
         else:
             try:
-                cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
+                cur_left, cur_top, cur_w, cur_h = window_snap._win32_helpers.get_window_rect(hwnd)
                 monitor_info = _find_monitor_by_rect(cur_left, cur_top, cur_w, cur_h)
                 if monitor_info is None:
                     _logger.debug(
@@ -287,12 +291,16 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     )
                     monitor = screens[0]
                     work_left, work_top, work_width, work_height = (
-                        _win32_helpers.get_monitor_work_area_at_point(monitor.x + 1, monitor.y + 1)
+                        window_snap._win32_helpers.get_monitor_work_area_at_point(
+                            monitor.x + 1, monitor.y + 1
+                        )
                     )
                 else:
                     _, monitor = monitor_info
                     work_left, work_top, work_width, work_height = (
-                        _win32_helpers.get_monitor_work_area_at_point(cur_left + 1, cur_top + 1)
+                        window_snap._win32_helpers.get_monitor_work_area_at_point(
+                            cur_left + 1, cur_top + 1
+                        )
                     )
 
                 left, top, width, height = (
@@ -312,14 +320,18 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     and width is not None
                     and height is not None
                 ):
-                    _win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+                    window_snap._win32_helpers.set_window_pos(
+                        hwnd, left, top, width, height, activate=False
+                    )
                 else:
-                    cur_left, cur_top, cur_w, cur_h = _win32_helpers.get_window_rect(hwnd)
+                    cur_left, cur_top, cur_w, cur_h = window_snap._win32_helpers.get_window_rect(
+                        hwnd
+                    )
                     nl = left if left is not None else cur_left
                     nt = top if top is not None else cur_top
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
-                    _win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+                    window_snap._win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
             except Exception as e:
                 _logger.debug("failed to reposition hwnd %s: %s", hwnd, e)
 
