@@ -94,12 +94,15 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
             continue
         pos_args = {}
         hwnd = w.get("hwnd")
-        # detect maximized state via window placement
+        # detect maximized/minimized state via window placement
         is_maximized = False
         if hwnd:
             try:
                 placement = win32gui.GetWindowPlacement(hwnd)
-                is_maximized = placement[1] == win32con.SW_SHOWMAXIMIZED
+                show_cmd = placement[1]
+                if show_cmd == win32con.SW_SHOWMINIMIZED:
+                    continue
+                is_maximized = show_cmd == win32con.SW_SHOWMAXIMIZED
             except Exception:
                 pass
         # rect is (left, top, width, height)
