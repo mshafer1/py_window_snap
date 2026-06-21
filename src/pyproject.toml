@@ -1,0 +1,31 @@
+[project]
+name = "window-snap"
+version = "0.1.0"
+description = "Snap windows to their configured positions"
+authors = [
+    {name = "Maker By Night",email = "2565361+mshafer1@users.noreply.github.com"}
+]
+license = "MIT"
+requires-python = ">=3.11,<4"
+dynamic = ["dependencies"]
+
+[tool.poetry.dependencies]
+pyautogui = "^0.9.54"
+pyyaml = "^6.0.3"
+click = "^8.4.1"
+python-decouple = "^3.8"
+screeninfo = "^0.8.1"
+pywinauto = "^0.6.9"
+
+[tool.poetry.scripts]
+window-snap = "window_snap.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ni-python-styleguide (>=0.5.0,<0.6.0)",
+    "flake8-logging (>=1.8.0,<2.0.0)"
+]
