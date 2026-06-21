@@ -86,6 +86,7 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
         the window's current position/size.
     """
     current_windows = {}
+    more_then_one_screen = len(_get_screen_info()) > 1
     for w in _win32_helpers.enum_windows():
         title = w.get("title")
         rect = w.get("rect")
@@ -100,6 +101,11 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
                 pos_args["maximized"] = True
             else:
                 pos_args.update({"left": left, "top": top, "width": width, "height": height})
+            if more_then_one_screen:
+                monitor_info = _find_monitor_by_rect(left, top, width, height)
+                if monitor_info is not None:
+                    monitor_index, _ = monitor_info
+                    pos_args["monitor"] = monitor_index + 1  # 1-indexed
         current_windows[title] = WindowSnapDestination(**pos_args)
     return current_windows
 
@@ -318,7 +324,7 @@ def snap_windows(config):
         try:
             destination = window_snap.WindowSnapDestination(
                 **{
-                    k: v
+                    k: (v if k != "monitor" else v - 1)  # convert monitor to 0-indexed internally
                     for k, v in snap_config.items()
                     if k in window_snap.WindowSnapDestination._fields
                 }
