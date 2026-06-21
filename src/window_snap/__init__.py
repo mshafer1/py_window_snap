@@ -6,13 +6,13 @@ import os
 import time
 import typing
 
-import pyautogui
-import pywinauto
 import screeninfo
 import yaml
 
 import window_snap
-from window_snap.__main__ import _logger
+from . import win32_helpers
+import win32con
+import win32gui
 
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())  # make sure there is a default handler available
@@ -57,97 +57,64 @@ yaml.SafeDumper.add_multi_representer(WindowSnapDestination, dataclass_represent
 
 def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
     current_windows = {}
-    for window in pyautogui.getAllWindows():
-        # TODO: if there is more then one monitor, also store that.
-        if window.title:
-            pos_args = {}
-            if window.isMaximized:
+    for w in win32_helpers.enum_windows():
+        title = w.get("title")
+        rect = w.get("rect")
+        if not title:
+            continue
+        pos_args = {}
+        # rect is (left, top, width, height)
+        if rect:
+            left, top, width, height = rect
+            # treat very large windows as maximized heuristically
+            if width == 0 or height == 0:
                 pos_args["maximized"] = True
             else:
-                pos_args.update(
-                    {
-                        "left": window.left,
-                        "top": window.top,
-                        "width": window.width,
-                        "height": window.height,
-                    }
-                )
-            current_windows[window.title] = WindowSnapDestination(**pos_args)
+                pos_args.update({"left": left, "top": top, "width": width, "height": height})
+        current_windows[title] = WindowSnapDestination(**pos_args)
     return current_windows
 
 
 def find_exe_names():
     title_to_exe_map = {}
-
-    # Get all running processes
     try:
-        all_running_modules = pywinauto.application.process_get_modules()
+        pid_map = win32_helpers.get_pid_to_exe_map()
+        for w in win32_helpers.enum_windows():
+            title = w.get("title")
+            pid = w.get("pid")
+            if title and pid:
+                exe = pid_map.get(pid)
+                if exe:
+                    title_to_exe_map[title] = exe.lower()
     except Exception as e:
-        print(f"Error accessing system modules: {e}. Try running as Admin.")
-        return {}
-
-    # Convert the module list into a fast lookup dictionary: { pid: "filename.exe" }
-    pid_to_exe = {}
-    for pid, exe_path, *_ in all_running_modules:
-        pid_to_exe[pid] = os.path.basename(exe_path).lower()
-
-    # grab open windows
-    windows = pywinauto.Desktop(backend="win32").windows()
-
-    for w in windows:
-        try:
-            # Pull the title text string
-            title = w.texts()[0].strip() if w.texts() else ""
-
-            # Filter out hidden tool overlays or broken zero-sized elements
-            rect = w.rectangle()
-            has_size = rect.width() > 10 and rect.height() > 10
-
-            if w.is_visible() and title and has_size:
-                win_pid = w.process_id()
-
-                # Store title -> exe name using pid
-                if win_pid in pid_to_exe:
-                    exe_name = pid_to_exe[win_pid]
-                    title_to_exe_map[title] = exe_name
-        except Exception as e:
-            _logger.debug("failed get info for a window: %s, continuing", e)
+        _logger.debug("failed get exe names via win32 helpers: %s", e)
     return title_to_exe_map
 
 
 @functools.lru_cache(maxsize=1)
 def find_pid_for_exe():
     exe_to_pid = collections.defaultdict(list)
-
-    # Get all running processes
     try:
-        all_running_modules = pywinauto.application.process_get_modules()
+        pid_map = win32_helpers.get_pid_to_exe_map()
+        for pid, exe in pid_map.items():
+            exe_to_pid[exe].append(pid)
     except Exception as e:
-        print(f"Error accessing system modules: {e}. Try running as Admin.")
-        return {}
-
-    for pid, exe_path, *_ in all_running_modules:
-        exe_to_pid[os.path.basename(exe_path)].append(pid)
-
-    # grab open windows
+        _logger.debug("failed build pid map via Toolhelp: %s", e)
     return exe_to_pid
 
 
-def _find_monitor(window):
-    win_center_x = window.left + (window.width // 2)
-    win_center_y = window.top + (window.height // 2)
+def _find_monitor_by_rect(left: int, top: int, width: int, height: int):
+    win_center_x = left + (width // 2)
+    win_center_y = top + (height // 2)
 
     monitors = _get_screen_info()
     for index, monitor in enumerate(monitors):
-        # Check if center X is between monitor left and monitor right
         inside_x = monitor.x <= win_center_x < (monitor.x + monitor.width)
-        # Check if center Y is between monitor top and monitor bottom
         inside_y = monitor.y <= win_center_y < (monitor.y + monitor.height)
-
         if inside_x and inside_y:
             return index, monitor
 
-    _logger.warning("Could not determine monitor for window %s", window.title)
+    _logger.warning("Could not determine monitor for rect %s,%s %sx%s", left, top, width, height)
     return None
 
 
@@ -164,35 +131,31 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
     _logger.info("Snapping window '%s' to destination: %s", window_title, destination)
 
     try:
+        hwnd = None
         if destination.find_by_exe:
-            main_window = None
-            try:
-                app = pywinauto.Application().connect(path=window_title)
-                main_window = app.top_window()
-            except:
-                pass
-            if main_window is None:
-                pid_options = find_pid_for_exe().get(window_title)
-                if not pid_options:
-                    _logger.warning("No window found for '%s', skipping", window_title)
-                    return
-                app = pywinauto.Application().connect(process=pid_options[0])
-                main_window = app.top_window()
-            main_window.set_focus()
-            time.sleep(0.1)
-            window = pyautogui.getActiveWindow()
+            # window_title here is expected to be an exe name
+            hwnds = win32_helpers.find_hwnds_by_exe(window_title)
+            if not hwnds:
+                _logger.warning("No window found for exe '%s', skipping", window_title)
+                return
+            hwnd = hwnds[0]
         else:
-            window = pyautogui.getWindowsWithTitle(window_title)[0]
+            hwnds = win32_helpers.find_hwnds_by_title(window_title)
+            if not hwnds:
+                _logger.info("Window '%s' not found, skipping", window_title)
+                return
+            hwnd = hwnds[0]
     except IndexError:
         _logger.info("Window '%s' not found, skipping", window_title)
         return
-
-    window.restore()  # ensure window is not minimized or maximized before moving/resizing
-    time.sleep(0.1)  # give the window manager a moment to update the window state
+    # ensure window is not minimized or maximized before moving/resizing
+    try:
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    except Exception:
+        pass
 
     # Perform the window snapping logic here
-    # This is a placeholder - replace with actual window snapping implementation
-    _logger.info("Window '%s' found, snapping to destination: %s", window_title, destination)
+    _logger.info("Window '%s' found (hwnd=%s), snapping to destination: %s", window_title, hwnd, destination)
     screens = _get_screen_info()
 
     if destination.monitor is not None and destination.monitor >= len(screens):
@@ -210,46 +173,86 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
             return
 
         screen = screens[destination.monitor]
+        work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
+            screen.x + 1, screen.y + 1
+        )
+
         if destination.maximized:
-            window.moveTo(screen.x, screen.y)
-            window.maximize()
+            try:
+                win32gui.SetWindowPos(hwnd, None, work_left, work_top, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOZORDER)
+                win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+            except Exception:
+                pass
         else:
             left, top, width, height = (
                 _scale_to_dimension(v, dimension, pos)
                 for v, dimension, pos in [
-                    (destination.left, screen.width, screen.x),
-                    (destination.top, screen.height, screen.y),
-                    (destination.width, screen.width, 0),
-                    (destination.height, screen.height, 0),
+                    (destination.left, work_width, work_left),
+                    (destination.top, work_height, work_top),
+                    (destination.width, work_width, 0),
+                    (destination.height, work_height, 0),
                 ]
             )
 
             _logger.debug("Handling %s as %s", destination, (left, top, width, height))
-            if left is not None and top is not None:
-                window.moveTo(left, top)
-            if width is not None and height is not None:
-                window.resizeTo(width, height)
+            if left is not None and top is not None and width is not None and height is not None:
+                win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+            else:
+                # partial updates
+                try:
+                    cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                    nl = left if left is not None else cur_left
+                    nt = top if top is not None else cur_top
+                    nw = width if width is not None else cur_w
+                    nh = height if height is not None else cur_h
+                    win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+                except Exception:
+                    pass
     else:
         # no monitor specified, just apply position/size changes
         if destination.maximized:
-            window.maximize()
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+            except Exception:
+                pass
         else:
-            current_screen = _find_monitor(window)
-            left, top, width, height = (
-                _scale_to_dimension(v, dimension, pos)
-                for v, dimension, pos in [
-                    (destination.left, current_screen.width, current_screen.x),
-                    (destination.top, current_screen.height, current_screen.y),
-                    (destination.width, current_screen.width, 0),
-                    (destination.height, current_screen.height, 0),
-                ]
-            )
+            try:
+                cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                monitor_info = _find_monitor_by_rect(cur_left, cur_top, cur_w, cur_h)
+                if monitor_info is None:
+                    _logger.debug("Could not determine monitor for hwnd %s, using primary monitor", hwnd)
+                    monitor = screens[0]
+                    work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
+                        monitor.x + 1, monitor.y + 1
+                    )
+                else:
+                    _, monitor = monitor_info
+                    work_left, work_top, work_width, work_height = win32_helpers.get_monitor_work_area_at_point(
+                        cur_left + 1, cur_top + 1
+                    )
 
-            _logger.debug("Handling %s as %s", destination, (left, top, width, height))
-            if left is not None and top is not None:
-                window.moveTo(left, top)
-            if width is not None and height is not None:
-                window.resizeTo(width, height)
+                left, top, width, height = (
+                    _scale_to_dimension(v, dimension, pos)
+                    for v, dimension, pos in [
+                        (destination.left, work_width, work_left),
+                        (destination.top, work_height, work_top),
+                        (destination.width, work_width, 0),
+                        (destination.height, work_height, 0),
+                    ]
+                )
+
+                _logger.debug("Handling %s as %s", destination, (left, top, width, height))
+                if left is not None and top is not None and width is not None and height is not None:
+                    win32_helpers.set_window_pos(hwnd, left, top, width, height, activate=False)
+                else:
+                    cur_left, cur_top, cur_w, cur_h = win32_helpers.get_window_rect(hwnd)
+                    nl = left if left is not None else cur_left
+                    nt = top if top is not None else cur_top
+                    nw = width if width is not None else cur_w
+                    nh = height if height is not None else cur_h
+                    win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+            except Exception as e:
+                _logger.debug("failed to reposition hwnd %s: %s", hwnd, e)
 
 
 def snap_windows(config):
