@@ -109,3 +109,4 @@ jobs:
           # token: ${{ secrets.ADMIN_PAT }}
           version-rule: "prepatch"
           use-dev-suffix: false
+          project-directory: ./src/
