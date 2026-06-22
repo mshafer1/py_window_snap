@@ -30,8 +30,7 @@ This module currently supports the following:
 - YAML-driven window layout management using a `windows` mapping in `config.yaml`.
 - Window matching by title (default) or executable name (`find_by_exe`).
 - Moving windows to a target monitor (monitor index in config is 1-based).
-  - Left most monitor is 1, numbered increasing moving to the right
-- Position and size as either:
+  - Leftmost monitor is 1, numbered increasing moving to the right
   - absolute pixel values (integer [0,monitor-width]), or
   - fractional values (0-1] relative to monitor work area.
 - Maximize handling via `maximized: true`.
