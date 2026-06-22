@@ -1,6 +1,5 @@
 """Module to snap windows to specified positions/sizes based on a YAML configuration."""
 
-import dataclasses
 import functools
 import logging
 import pathlib
@@ -216,7 +215,15 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         _logger.warning(
             "Monitor index %d is out of range, skipping monitor assignment", destination.monitor
         )
-        destination = dataclasses.replace(destination, monitor=None)
+        destination = WindowSnapDestination(
+            monitor=None,
+            left=destination.left,
+            top=destination.top,
+            width=destination.width,
+            height=destination.height,
+            maximized=destination.maximized,
+            find_by_exe=destination.find_by_exe,
+        )
 
     if destination.monitor is not None:
         # move to desired monitor
