@@ -8,14 +8,16 @@ authors = [
 license = "MIT"
 requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
+classifiers = [
+    "Operating System :: Microsoft :: Windows",
+]
 
 [tool.poetry.dependencies]
-pyautogui = "^0.9.54"
 pyyaml = "^6.0.3"
 click = "^8.4.1"
 python-decouple = "^3.8"
 screeninfo = "^0.8.1"
-pywinauto = "^0.6.9"
+pywin32 = "^312"
 
 [tool.poetry.scripts]
 window-snap = "window_snap.__main__:main"

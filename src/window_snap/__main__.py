@@ -1,3 +1,5 @@
+"""Main entry point for the window_snap command-line tool."""
+
 import logging
 
 import click
@@ -24,6 +26,11 @@ _logger = logging.getLogger(__name__)
     help="Store the current position and size of all windows in the config file instead of snapping",
 )
 def main(verbosity: int, store_current: bool):
+    """Snap windows to desired locations.
+
+    Load window positions/sizes from a config file and snap windows accordingly,
+    or store current positions/sizes if --store-current is used.
+    """
     my_handler = logging.StreamHandler()
     logging_level = logging.WARNING - (10 * verbosity) if verbosity > 0 else logging.WARNING
     my_handler.setFormatter(
