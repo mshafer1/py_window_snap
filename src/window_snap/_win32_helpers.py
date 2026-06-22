@@ -145,6 +145,17 @@ _cache_ttl_seconds = 2.0
 
 def _build_pid_to_exe_map() -> typing.Dict[int, str]:
     kernel32 = ctypes.windll.kernel32
+
+    # Set proper argtypes/restype so HANDLE values are not truncated on 64-bit Python
+    kernel32.CreateToolhelp32Snapshot.argtypes = [ctypes.wintypes.DWORD, ctypes.wintypes.DWORD]
+    kernel32.CreateToolhelp32Snapshot.restype = ctypes.wintypes.HANDLE
+    kernel32.Process32FirstW.argtypes = [ctypes.wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32FirstW.restype = ctypes.wintypes.BOOL
+    kernel32.Process32NextW.argtypes = [ctypes.wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.restype = ctypes.wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [ctypes.wintypes.HANDLE]
+    kernel32.CloseHandle.restype = ctypes.wintypes.BOOL
+
     invalid_handle_value = ctypes.c_void_p(-1).value
     snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     if snapshot == invalid_handle_value or snapshot is None:
@@ -154,14 +165,16 @@ def _build_pid_to_exe_map() -> typing.Dict[int, str]:
     entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
     pid_to_exe: typing.Dict[int, str] = {}
 
-    success = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
-    while success:
-        pid = entry.th32ProcessID
-        exe = entry.szExeFile
-        pid_to_exe[pid] = exe
-        success = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+    try:
+        success = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        while success:
+            pid = entry.th32ProcessID
+            exe = entry.szExeFile
+            pid_to_exe[pid] = exe
+            success = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+    finally:
+        kernel32.CloseHandle(snapshot)
 
-    kernel32.CloseHandle(snapshot)
     return pid_to_exe
 
 

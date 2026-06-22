@@ -8,6 +8,9 @@ authors = [
 license = "MIT"
 requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
+classifiers = [
+    "Operating System :: Microsoft :: Windows",
+]
 
 [tool.poetry.dependencies]
 pyyaml = "^6.0.3"

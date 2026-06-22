@@ -49,7 +49,7 @@ def _get_screen_info() -> typing.List[screeninfo.screeninfo.Monitor]:
 
 
 def _dataclass_representer(dumper, data):
-    # This automatically converts the dataclass to a plain dict behind the scenes
+    # This automatically converts the NamedTuple to a plain dict behind the scenes
     return dumper.represent_dict({k: v for k, v in data._asdict().items() if v is not None})
 
 
@@ -86,7 +86,7 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
         the window's current position/size.
     """
     current_windows = {}
-    more_then_one_screen = len(_get_screen_info()) > 1
+    more_than_one_screen = len(_get_screen_info()) > 1
     for w in window_snap._win32_helpers.enum_windows():
         title = w.get("title")
         rect = w.get("rect")
@@ -112,7 +112,7 @@ def get_current_windows() -> typing.Dict[str, WindowSnapDestination]:
                 pos_args["maximized"] = True
             else:
                 pos_args.update({"left": left, "top": top, "width": width, "height": height})
-            if more_then_one_screen:
+            if more_than_one_screen:
                 monitor_info = _find_monitor_by_rect(left, top, width, height)
                 if monitor_info is not None:
                     monitor_index, _ = monitor_info
@@ -128,7 +128,7 @@ def find_exe_names():
     PID->exe mapping from `win32_helpers`.
 
     Returns:
-        dict: mapping of window title to executable path (lowercased).
+        dict: mapping of window title to executable filename (lowercased).
     """
     title_to_exe_map = {}
     try:
@@ -340,11 +340,24 @@ def snap_windows(config):
     """Apply snapping rules from configuration to all named windows.
 
     Args:
-        config: Configuration dict which must contain a `windows` mapping.
+        config: Configuration dict which may contain a `windows` mapping.
     """
-    for window_name, snap_config in config["windows"].items():
+    windows = (config or {}).get("windows")
+    if not windows:
+        _logger.debug("No 'windows' configuration found; nothing to snap.")
+        return
+    for window_name, snap_config in windows.items():
         _logger.debug("Processing window '%s' with config: %s", window_name, snap_config)
         try:
+            monitor_value = snap_config.get("monitor") if isinstance(snap_config, dict) else None
+            if monitor_value is not None:
+                if not isinstance(monitor_value, int) or monitor_value < 1:
+                    _logger.warning(
+                        "Invalid monitor value %r for window '%s': must be an integer >= 1, skipping monitor assignment.",
+                        monitor_value,
+                        window_name,
+                    )
+                    snap_config = {k: v for k, v in snap_config.items() if k != "monitor"}
             destination = window_snap.WindowSnapDestination(
                 **{
                     k: (v if k != "monitor" else v - 1)  # convert monitor to 0-indexed internally
