@@ -1,6 +1,6 @@
 [project]
 name = "window_snap"
-version = "0.1.4-alpha.0"
+version = "0.1.5-alpha.0"
 description = "Snap windows to their configured positions"
 authors = [
     {name = "Maker By Night",email = "2565361+mshafer1@users.noreply.github.com"}
