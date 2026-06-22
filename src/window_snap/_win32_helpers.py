@@ -102,15 +102,6 @@ def get_monitor_work_area_at_point(x: int, y: int) -> typing.Tuple[int, int, int
     return left, top, right - left, bottom - top
 
 
-def _get_monitor_work_area_for_rect(
-    left: int, top: int, width: int, height: int
-) -> typing.Tuple[int, int, int, int]:
-    """Return the monitor work area rectangle for the monitor containing the center of a rect."""
-    if width <= 0 or height <= 0:
-        return get_monitor_work_area_at_point(left, top)
-    return get_monitor_work_area_at_point(left + width // 2, top + height // 2)
-
-
 def set_window_pos(
     hwnd: int, left: int, top: int, width: int, height: int, activate: bool = False
 ) -> None:
@@ -128,14 +119,6 @@ def set_window_pos(
     if not activate:
         flags |= win32con.SWP_NOACTIVATE
     win32gui.SetWindowPos(hwnd, None, left, top, width, height, flags)
-
-
-def _move_window(hwnd: int, left: int, top: int, width: int, height: int) -> None:
-    # MoveWindow will activate the window; SetWindowPos used above avoids activation when possible
-    try:
-        win32gui.MoveWindow(hwnd, left, top, width, height, True)
-    except Exception:
-        set_window_pos(hwnd, left, top, width, height, activate=False)
 
 
 # Simple TTL cache for pid->exe mapping
