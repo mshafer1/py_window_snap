@@ -12,6 +12,7 @@ import win32process
 
 # Toolhelp constants
 TH32CS_SNAPPROCESS = 0x00000002
+SM_REMOTESESSION = 0x1000
 
 
 if ctypes.sizeof(ctypes.c_void_p) == 8:
@@ -119,6 +120,18 @@ def set_window_pos(
     if not activate:
         flags |= win32con.SWP_NOACTIVATE
     win32gui.SetWindowPos(hwnd, None, left, top, width, height, flags)
+
+
+def is_remote_desktop_session() -> bool:
+    """Return whether the current process is running in a remote desktop session."""
+    try:
+        if ctypes.windll.user32.GetSystemMetrics(SM_REMOTESESSION):
+            return True
+    except Exception:
+        pass
+
+    session_name = os.environ.get("SESSIONNAME", "")
+    return session_name.upper().startswith("RDP-")
 
 
 # Simple TTL cache for pid->exe mapping
