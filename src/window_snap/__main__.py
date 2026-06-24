@@ -25,7 +25,12 @@ _logger = logging.getLogger(__name__)
     is_flag=True,
     help="Store the current position and size of all windows in the config file instead of snapping",
 )
-def main(verbosity: int, store_current: bool):
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Run even when the current session is a Windows remote desktop session",
+)
+def main(verbosity: int, store_current: bool, force: bool):
     """Snap windows to desired locations.
 
     Load window positions/sizes from a config file and snap windows accordingly,
@@ -61,6 +66,12 @@ def main(verbosity: int, store_current: bool):
         _logger.info("Current window positions and sizes stored successfully")
         return
     else:
+        if window_snap._win32_helpers.is_remote_desktop_session() and not force:
+            _logger.warning(
+                "Remote desktop session detected; skipping window snapping. Use --force to override."
+            )
+            return
+
         _logger.info("Loading configuration from %s", config_path)
         config = window_snap.load_config(config_path)
 
