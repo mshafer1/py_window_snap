@@ -29,7 +29,7 @@ This module currently supports the following:
 Command-line features:
 
 - `window-snap` applies the configured layout from the default config path.
-- Snapping is skipped when running inside a Windows Remote Desktop session. 
+- Snapping is skipped when running inside a Windows Remote Desktop session.
 
   `window-snap --force` applies the configured layout even during a Remote Desktop session.
 
