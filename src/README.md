@@ -4,11 +4,6 @@ Installation:
 
 `pipx install window_snap`
 
-## Repository Instructions
-
-- When updating project documentation, update both the `docs/` folder and this `README.md` so GitHub Pages and repository docs stay in sync.
-
-
 ## Configuring
 
 By default, the program looks at `%userprofile%\.config\window-snap\config.yaml`.
