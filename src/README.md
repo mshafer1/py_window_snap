@@ -4,6 +4,10 @@ Installation:
 
 `pipx install window_snap`
 
+## Repository Instructions
+
+- When updating project documentation, update both the `docs/` folder and this `README.md` so GitHub Pages and repository docs stay in sync.
+
 
 ## Configuring
 
@@ -22,9 +26,26 @@ This module currently supports the following:
   - absolute pixel values (integer [0,monitor-width]), or
   - fractional values (0-1] relative to monitor work area.
 - Maximize handling via `maximized: true`.
+- Temporary on-top handling via `on_top: true`.
 - Partial updates where unspecified values keep the window's current position/size.
 - Multi-monitor awareness with monitor detection from window geometry.
 - Safe handling when windows are missing or configuration entries are invalid (logs and continues).
+
+Example config snippet:
+
+```yaml
+windows:
+  chrome.exe:
+    find_by_exe: true
+    on_top: true
+    monitor: 2
+    left: 0
+    top: 0
+    width: 0.5
+    height: 1
+```
+
+`on_top` only puts the window on top at the moment during processing.
 
 Command-line features:
 

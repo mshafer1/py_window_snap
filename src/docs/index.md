@@ -11,6 +11,10 @@ It is useful if you regularly want the same app layout on startup, after docking
 - Supports multi-monitor placement using a 1-based monitor index.
 - Accepts both absolute pixel values and fractional values for placement and size.
 - Supports maximized window targets.
+- Supports putting the window currently on top with `on_top: true`.
+
+  Note: The next window to process may compete with this, so put these late in the config if desired.
+
 - Can capture current window positions into a starter config.
 
 ## Quick Start

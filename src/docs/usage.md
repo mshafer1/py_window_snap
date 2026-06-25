@@ -52,6 +52,7 @@ _config_version: 0.1.0
 windows:
   chrome.exe:
     find_by_exe: true
+    on_top: true
     monitor: 2
     left: 0
     top: 0
@@ -70,6 +71,27 @@ windows:
 
 - Default: key is matched against window title.
 - `find_by_exe: true`: key is matched against executable name (for example, `chrome.exe`).
+
+## Set Window On Top
+
+Use `on_top: true` to request the window be moved to the top when it is processed.
+
+```yaml
+windows:
+  chrome.exe:
+    find_by_exe: true
+    on_top: true
+    monitor: 2
+    left: 0
+    top: 0
+    width: 1
+    height: 1
+```
+
+Notes:
+
+- This is not persistent and can reset when the window is minimized or closed.
+- Use `on_top: false` or omit the field to keep default behavior (of not changing the window ordering beyond necessary).
 
 ## Placement Values
 
