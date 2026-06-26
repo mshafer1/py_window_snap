@@ -30,5 +30,15 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "ni-python-styleguide (>=0.5.0,<0.6.0)",
-    "flake8-logging (>=1.8.0,<2.0.0)"
+    "flake8-logging (>=1.8.0,<2.0.0)",
+    "poethepoet (>=0.46.0,<0.47.0)"
+]
+
+[tool.poe.tasks]
+format = "poetry run ni-python-styleguide format"
+lint = "poetry run ni-python-styleguide lint"
+check = "poetry check --lock"
+build = "poetry build"
+all = [
+   "format", "lint", "check", "build"
 ]
