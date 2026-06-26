@@ -24,9 +24,13 @@ It is useful if you regularly want the same app layout on startup, after docking
 3. Edit the config as needed.
 4. Run window-snap whenever you want to apply the layout.
 
-See the full setup guide here: [Installation](installation.md)
 
-See command and config examples here: [Usage](usage.md)
+## Documentation
+
+| Page | Description |
+| --- | --- |
+| [Installation](installation.md) | Setup and installation instructions. |
+| [Usage](usage.md) | Command reference and configuration examples. |
 
 ## Requirements
 
