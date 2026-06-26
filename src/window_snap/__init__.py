@@ -63,8 +63,8 @@ class WindowSnapDestination(typing.NamedTuple):
         height: Height in pixels or fraction of the work area height.
         maximized: If True, maximize the window on the target monitor/work area.
         find_by_exe: If True, treat the name as an executable and find windows by exe.
-        on_top: If True, sets the window to be on top of others when processed. 
-          This is not persistent and will be reset when the window is minimized or closed.
+        on_top: If True, sets the window to be on top of others when processed.
+            This is not persistent and will be reset when the window is minimized or closed.
     """
 
     monitor: typing.Optional[int] = None
