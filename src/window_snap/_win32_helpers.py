@@ -122,6 +122,27 @@ def set_window_pos(
     win32gui.SetWindowPos(hwnd, None, left, top, width, height, flags)
 
 
+def put_on_top(hwnd: int, activate: bool = False) -> None:
+    """Bring a window to the top of the normal z-order.
+
+    This performs a transient ``HWND_TOPMOST`` pulse followed by
+    ``HWND_NOTOPMOST`` so the window is raised reliably without remaining
+    always-on-top.
+
+    Args:
+        hwnd (int): Handle to the target window.
+        activate (bool): If True, activate the window while raising it.
+    """
+    flags = win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOOWNERZORDER
+    if not activate:
+        flags |= win32con.SWP_NOACTIVATE
+
+    # Pulse topmost then immediately clear it so we do not leave the window
+    # in an always-on-top state.
+    win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, flags)
+    win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+
+
 def is_remote_desktop_session() -> bool:
     """Return whether the current process is running in a remote desktop session."""
     try:
@@ -273,6 +294,7 @@ def find_hwnds_by_exe(exe_name: str) -> typing.List[int]:
     if not target_pids:
         return []
     matches: typing.List[int] = []
+
     def _cb(hwnd, _):
         try:
             if not win32gui.IsWindowVisible(hwnd):

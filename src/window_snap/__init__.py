@@ -63,6 +63,8 @@ class WindowSnapDestination(typing.NamedTuple):
         height: Height in pixels or fraction of the work area height.
         maximized: If True, maximize the window on the target monitor/work area.
         find_by_exe: If True, treat the name as an executable and find windows by exe.
+        on_top: If True, sets the window to be on top of others when processed.
+            This is not persistent and will be reset when the window is minimized or closed.
     """
 
     monitor: typing.Optional[int] = None
@@ -72,6 +74,7 @@ class WindowSnapDestination(typing.NamedTuple):
     height: typing.Optional[float] = None
     maximized: typing.Optional[bool] = None
     find_by_exe: typing.Optional[bool] = None
+    on_top: typing.Optional[bool] = None
 
 
 yaml.SafeDumper.add_multi_representer(WindowSnapDestination, _dataclass_representer)
@@ -250,6 +253,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     win32con.SWP_NOSIZE | win32con.SWP_NOZORDER,
                 )
                 win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+
             except Exception:
                 pass
         else:
@@ -268,6 +272,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                 window_snap._win32_helpers.set_window_pos(
                     hwnd, left, top, width, height, activate=False
                 )
+
             else:
                 # partial updates
                 try:
@@ -279,6 +284,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
                     window_snap._win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+
                 except Exception:
                     pass
     else:
@@ -286,6 +292,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
         if destination.maximized:
             try:
                 win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+
             except Exception:
                 pass
         else:
@@ -330,6 +337,7 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     window_snap._win32_helpers.set_window_pos(
                         hwnd, left, top, width, height, activate=False
                     )
+
                 else:
                     cur_left, cur_top, cur_w, cur_h = window_snap._win32_helpers.get_window_rect(
                         hwnd
@@ -339,8 +347,16 @@ def snap_window(window_title: str, destination: WindowSnapDestination):
                     nw = width if width is not None else cur_w
                     nh = height if height is not None else cur_h
                     window_snap._win32_helpers.set_window_pos(hwnd, nl, nt, nw, nh, activate=False)
+
             except Exception as e:
                 _logger.debug("failed to reposition hwnd %s: %s", hwnd, e)
+
+    if destination.on_top:
+        _logger.debug("Setting window '%s' (hwnd=%s) to be on top", window_title, hwnd)
+        try:
+            window_snap._win32_helpers.put_on_top(hwnd, activate=True)
+        except Exception as e:
+            _logger.debug("failed to raise hwnd %s to top: %s", hwnd, e)
 
 
 def snap_windows(config):
