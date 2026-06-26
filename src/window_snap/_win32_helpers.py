@@ -294,6 +294,7 @@ def find_hwnds_by_exe(exe_name: str) -> typing.List[int]:
     if not target_pids:
         return []
     matches: typing.List[int] = []
+
     def _cb(hwnd, _):
         try:
             if not win32gui.IsWindowVisible(hwnd):
