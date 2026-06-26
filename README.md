@@ -18,3 +18,5 @@ Says that I can spend up to 4 minutes writing this app and save time over 5 year
 And the annoyance factor is through the roof, so here I go.
 
 See [src/README.md](src/README.md) for more details.
+
+For release history, see [docs/changelog.md](docs/changelog.md).

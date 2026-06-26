@@ -31,6 +31,7 @@ It is useful if you regularly want the same app layout on startup, after docking
 | --- | --- |
 | [Installation](installation.md) | Setup and installation instructions. |
 | [Usage](usage.md) | Command reference and configuration examples. |
+| [Changelog](changelog.md) | Project release history in Keep a Changelog format. |
 
 ## Requirements
 
