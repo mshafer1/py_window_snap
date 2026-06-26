@@ -98,7 +98,8 @@ Notes:
 For `left`, `top`, `width`, `height`:
 
 - Integer values represent absolute pixels.
-- Decimal values in `0<x<=1` are relative to monitor work area. (e.g., `.5` means half, `1` means full, `10` means 10 pixels)
+- Numeric values in `0 < x <= 1` are treated as fractions of the monitor work area (e.g., `0.5` is half, `1` is full).
+- Values greater than `1` are treated as absolute pixels (e.g., `10` means 10 pixels).
 
 Monitor indices are 1-based:
 
