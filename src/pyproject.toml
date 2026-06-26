@@ -13,6 +13,11 @@ classifiers = [
 ]
 readme = "README.md"
 
+[project.urls]
+repository = "https://github.com/mshafer1/py_window_snap"
+homepage = "https://mshafer1.github.io/py_window_snap/"
+changelog = "https://mshafer1.github.io/py_window_snap/changelog.html"
+
 [tool.poetry.dependencies]
 pyyaml = "^6.0.3"
 click = "^8.4.1"
@@ -20,7 +25,7 @@ python-decouple = "^3.8"
 screeninfo = "^0.8.1"
 pywin32 = "^312"
 
-[tool.poetry.scripts]
+[project.scripts]
 window-snap = "window_snap.__main__:main"
 
 [build-system]
